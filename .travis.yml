@@ -1,0 +1,33 @@
+dist: trusty
+sudo: required
+language: go
+go: 1.9
+services:
+  - docker
+install:
+  - make setup
+  - gem install fpm
+#  - npm install -g prettier
+  - sudo apt-get update
+  - sudo apt-get install --yes snapd rpm
+  - export PATH=/snap/bin:$PATH
+  - sudo snap install snapcraft --candidate --classic
+script:
+  - make ci
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+  - test -n "$TRAVIS_TAG" && docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - test -n "$TRAVIS_TAG" && curl -sL https://git.io/goreleaser | bash
+  #- make static
+# deploy:
+#  provider: pages
+#  skip_cleanup: true
+#  github_token: $GITHUB_TOKEN
+#  repo: masahide/ecsfgrun.github.io
+#  local_dir: ./dist/ecsfgrun.github.io
+#  target_branch: master
+#  on:
+#    master: true
+notifications:
+  email: false
+

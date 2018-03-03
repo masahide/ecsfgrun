@@ -1,0 +1,60 @@
+builds:
+  -
+    main: cmd/ecsfgrun/main.go
+    binary: ecsfgrun
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+checksum:
+  name_template: '{{ .ProjectName }}_checksums.txt'
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
+dockers:
+  - image: masahide/ecsfgrun
+    tag_templates:
+    - '{{ .Tag }}'
+    - 'v{{ .Major }}.{{ .Minor }}'
+    - 'latest'
+archive:
+  name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  replacements:
+    darwin: Darwin
+    linux: Linux
+    windows: Windows
+    amd64: x86_64
+  format_overrides:
+    - goos: windows
+      format: zip
+brew:
+  github:
+    owner: masahide
+    name: ecsfgrun
+  folder: Formula
+  homepage:  https://github.com/masahide/ecsfgrun
+  description: AWS assume role credential wrapper
+  test: |
+    system "#{bin}/ecsfgrun -v"
+fpm:
+  name_template: '{{ .ProjectName }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  homepage:  https://github.com/masahide/ecsfgrun
+  description: AWS assume role credential wrapper
+  maintainer: YAMASAKI Masahide <masahide.y@gmail.com>
+  license: MIT
+  vendor: Assumer
+  formats:
+    - deb
+    - rpm
+# snapcraft:
+#   name_template: '{{ .ProjectName }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+#   summary: AWS assume role credential wrapper
+#   description: AWS assume role credential wrapper
+#   grade: stable
+#   confinement: classic
