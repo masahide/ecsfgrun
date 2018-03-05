@@ -44,12 +44,12 @@ type environments struct {
 	AWSDefaultRegion         string   `envconfig:"AWS_DEFAULT_REGION"`
 	Home                     string   `envconfig:"HOME"`
 	PrintTime                bool     `envconfig:"PRINT_TIME" default:"false"`
-	AssignPublicIP           bool     `envconfig:"PUBLICIP" default:"false"`
+	AssignPublicIP           bool     `envconfig:"PUBLICIP" default:"true"`
 	Cluster                  string   `envconfig:"CLUSTER" desc:"If you do not specify a cluster, the default cluster is assumed"`
 	LaunchType               string   `envconfig:"LAUNCHTYPE" default:"FARGATE"`
 	SecurityGroups           []string `envconfig:"SECGROUPS" desc:"Security groups of awsvpc network mode"`
 	Subnets                  []string `envconfig:"SUBNETS" desc:"Subnets of awsvpc network mode"`
-	TaskDefinition           string   `envconfig:"TASKDEF" required:"false" desc:"The family and revision (family:revision ) or full ARN of the task definition to run."`
+	TaskDefinition           string   `envconfig:"TASKDEF" required:"true" desc:"The family and revision (family:revision ) or full ARN of the task definition to run."`
 }
 
 // Time envconfig type of time
@@ -80,10 +80,17 @@ var (
 
 func init() {
 	showVersion := false
+	showHelp := false
 	flag.BoolVar(&showVersion, "version", false, "show version")
+	flag.BoolVar(&showHelp, "h", false, "show help")
 	flag.Parse()
 	if showVersion {
 		fmt.Printf("%s version %v, commit %v, built at %v\n", filepath.Base(os.Args[0]), version, commit, date)
+		os.Exit(0)
+	}
+	if showHelp {
+		flag.PrintDefaults()
+		envconfig.Usage("", &env)
 		os.Exit(0)
 	}
 
