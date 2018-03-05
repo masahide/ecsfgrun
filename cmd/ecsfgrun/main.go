@@ -90,7 +90,7 @@ func init() {
 	}
 	if showHelp {
 		flag.PrintDefaults()
-		envconfig.Usage("", &env)
+		envconfig.Usage("", &env) // nolint errcheck
 		os.Exit(0)
 	}
 
