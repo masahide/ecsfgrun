@@ -49,7 +49,7 @@ type environments struct {
 	LaunchType               string   `envconfig:"LAUNCHTYPE" default:"FARGATE"`
 	SecurityGroups           []string `envconfig:"SECGROUPS" desc:"Security groups of awsvpc network mode"`
 	Subnets                  []string `envconfig:"SUBNETS" desc:"Subnets of awsvpc network mode"`
-	TaskDefinition           string   `envconfig:"TASKDEF" required:"true" desc:"The family and revision (family:revision ) or full ARN of the task definition to run."`
+	TaskDefinition           string   `envconfig:"TASKDEF" required:"false" desc:"The family and revision (family:revision ) or full ARN of the task definition to run."`
 }
 
 // Time envconfig type of time
