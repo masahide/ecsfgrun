@@ -18,13 +18,13 @@ Command to execute the ecs task in the foreground.
 For RHEL/CentOS:
 
 ```bash
-sudo yum install https://github.com/masahide/ecsfgrun/releases/download/v0.1.0/ecsfgrun_amd64.rpm
+sudo yum install https://github.com/masahide/ecsfgrun/releases/download/v0.2.0/ecsfgrun_amd64.rpm
 ```
 
 For Ubuntu/Debian:
 
 ```bash
-wget -qO /tmp/ecsfgrun_amd64.deb https://github.com/masahide/ecsfgrun/releases/download/v0.1.0/ecsfgrun_amd64.deb && sudo dpkg -i /tmp/ecsfgrun_amd64.deb
+wget -qO /tmp/ecsfgrun_amd64.deb https://github.com/masahide/ecsfgrun/releases/download/v0.2.0/ecsfgrun_amd64.deb && sudo dpkg -i /tmp/ecsfgrun_amd64.deb
 ```
 
 ### macOS
