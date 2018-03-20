@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -438,26 +440,35 @@ func TestGetTaskID(t *testing.T) {
 	}
 }
 
-/*
 func TestMakeEnvs(t *testing.T) {
 	os.Setenv("hogefuga_hoge", "hogehoge")
+	os.Setenv("hogefuga_fuga", "fugafuga")
 	os.Setenv("testENV", "hogehoge")
 	kvs := makeEnvs("hogefuga_")
-	for _, kv := range kvs {
-		if *kv.Name == "hogefuga_hoge" {
-			t.Error("ignorePrefix err")
-		}
+	v, err := getEnv(kvs, "hoge")
+	if err != nil {
+		t.Error(err)
 	}
-	for _, kv := range kvs {
-		if *kv.Name == "testENV" {
-			if *kv.Value == "hogehoge" {
-				return
-			}
-		}
+	if v != "hogehoge" {
+		t.Errorf("err value: %s", v)
 	}
-	t.Error("env not found")
+	if _, err := getEnv(kvs, "testEnv"); err == nil {
+		t.Error("error")
+	}
+
+	if makeEnvs("fugafugafuadfa") != nil {
+		t.Error("not empty")
+	}
 }
-*/
+
+func getEnv(kvs []*ecs.KeyValuePair, key string) (string, error) {
+	for _, kv := range kvs {
+		if *kv.Name == key {
+			return *kv.Value, nil
+		}
+	}
+	return "", fmt.Errorf("%s not found", key)
+}
 
 func TestGetGroupID(t *testing.T) {
 	var vtests = []struct {
