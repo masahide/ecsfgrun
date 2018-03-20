@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -444,29 +445,29 @@ func TestMakeEnvs(t *testing.T) {
 	os.Setenv("hogefuga_fuga", "fugafuga")
 	os.Setenv("testENV", "hogehoge")
 	kvs := makeEnvs("hogefuga_")
-	for _, kv := range kvs {
-		if *kv.Name == "hoge" && *kv.Value != "hogehoge" {
-			t.Errorf("ignorePrefix err: %# v", kv)
-		}
-		if *kv.Name == "fuga" && *kv.Value != "fugafuga" {
-			t.Errorf("ignorePrefix err: %# v", kv)
-		}
+	v, err := getEnv(kvs, "hoge")
+	if err != nil {
+		t.Error(err)
 	}
-	for _, kv := range kvs {
-		if *kv.Name == "testENV" {
-			t.Error("error")
-		}
+	if v != "hogehoge" {
+		t.Errorf("err value: %s", v)
 	}
-	for _, kv := range kvs {
-		if *kv.Name == "hoge" {
-			return
-		}
+	if _, err := getEnv(kvs, "testEnv"); err == nil {
+		t.Error("error")
 	}
-	t.Error("Not found key.")
 
 	if makeEnvs("fugafugafuadfa") != nil {
 		t.Error("not empty")
 	}
+}
+
+func getEnv(kvs []*ecs.KeyValuePair, key string) (string, error) {
+	for _, kv := range kvs {
+		if *kv.Name == key {
+			return *kv.Value, nil
+		}
+	}
+	return "", fmt.Errorf("%s not found", key)
 }
 
 func TestGetGroupID(t *testing.T) {
