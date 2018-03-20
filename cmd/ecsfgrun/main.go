@@ -42,6 +42,7 @@ type environments struct {
 	AWSDefaultProfile        string        `envconfig:"AWS_DEFAULT_PROFILE"`
 	AWSProfile               string        `envconfig:"AWS_PROFILE"`
 	AWSDefaultRegion         string        `envconfig:"AWS_DEFAULT_REGION"`
+	AWSRegion                string        `envconfig:"AWS_REGION"`
 	OverrideEnvPrefix        string        `envconfig:"OVERRIDE_ENV_PREFIX" default:"ECSFGRUN_"`
 	Home                     string        `envconfig:"HOME"`
 	StartWait                time.Duration `envconfig:"START_WAIT" default:"40s"`
@@ -175,6 +176,9 @@ func createRunParam(client ecsiface.ECSAPI, env environments, cmdline []string) 
 		LaunchType:     &env.LaunchType,
 		TaskDefinition: &env.TaskDefinition,
 		Cluster:        &env.Cluster,
+	}
+	if env.LaunchType == "EC2" {
+		input.NetworkConfiguration = nil
 	}
 	if len(cmdline) > 0 {
 		definition, err := client.DescribeTaskDefinition(&ecs.DescribeTaskDefinitionInput{TaskDefinition: &env.TaskDefinition})
@@ -312,6 +316,7 @@ func getProfile(profile, configFileName string) (res profileConfig, err error) {
 	res.SrcProfile = sec.Key(iniSrcProfile).String()
 	res.Region = sec.Key(iniRegion).String()
 	// see: https://github.com/boto/botocore/blob/2f0fa46380a59d606a70d76636d6d001772d8444/botocore/session.py#L83
+	res.Region = env.AWSRegion
 	if len(env.AWSDefaultRegion) > 0 {
 		res.Region = env.AWSDefaultRegion
 	}
