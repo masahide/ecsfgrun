@@ -316,7 +316,9 @@ func getProfile(profile, configFileName string) (res profileConfig, err error) {
 	res.SrcProfile = sec.Key(iniSrcProfile).String()
 	res.Region = sec.Key(iniRegion).String()
 	// see: https://github.com/boto/botocore/blob/2f0fa46380a59d606a70d76636d6d001772d8444/botocore/session.py#L83
-	res.Region = env.AWSRegion
+	if len(env.AWSRegion) > 0 {
+		res.Region = env.AWSRegion
+	}
 	if len(env.AWSDefaultRegion) > 0 {
 		res.Region = env.AWSDefaultRegion
 	}
