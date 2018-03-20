@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -118,7 +117,11 @@ func main() {
 	if err == nil && len(conf.SrcProfile) > 0 {
 		sess = getStsSession(conf)
 	}
-	run(sess, env, args)
+	code, err := run(ecs.New(sess), cloudwatchlogs.New(sess), env, args)
+	if err != nil {
+		log.Println(err)
+	}
+	os.Exit(code)
 }
 
 func createStrSliceRef(s []string) []*string {
@@ -129,20 +132,18 @@ func createStrSliceRef(s []string) []*string {
 	return res
 }
 
-func run(sess client.ConfigProvider, env environments, cmdline []string) {
-	ecsSv := ecs.New(sess)
+func run(ecsSv ecsiface.ECSAPI, logsSv cloudwatchlogsiface.CloudWatchLogsAPI, env environments, cmdline []string) (int, error) {
 	input, err := createRunParam(ecsSv, env, cmdline)
 	if err != nil {
-		log.Fatal(err)
+		return 1, err
 	}
 	task, err := runContainer(ecsSv, input)
 	if err != nil {
-		log.Fatal(err)
+		return 1, err
 	}
 	logGroup := "/ecs/" + getGroupID(env.TaskDefinition)
 	logStream := "ecs/" + aws.StringValue(task.Containers[0].Name) + "/" + getTaskID(task.TaskArn)
 
-	logsSv := cloudwatchlogs.New(sess)
 	logReq := cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  &logGroup,
 		LogStreamName: &logStream,
@@ -153,11 +154,7 @@ func run(sess client.ConfigProvider, env environments, cmdline []string) {
 		Cluster: &env.Cluster,
 		Tasks:   []*string{aws.String(getTaskID(task.TaskArn))},
 	}
-	code, err := readLog(os.Stdout, logsSv, ecsSv, logReq, ecsReq, env)
-	if err != nil {
-		log.Println(err)
-	}
-	os.Exit(int(code))
+	return readLog(os.Stdout, logsSv, ecsSv, logReq, ecsReq, env)
 }
 
 func createRunParam(client ecsiface.ECSAPI, env environments, cmdline []string) (*ecs.RunTaskInput, error) {
@@ -222,13 +219,13 @@ func makeEnvs(prefix string) []*ecs.KeyValuePair {
 	return nil
 }
 
-func readLog(w io.Writer, logsSv cloudwatchlogsiface.CloudWatchLogsAPI, ecsSv ecsiface.ECSAPI, logReq cloudwatchlogs.GetLogEventsInput, ecsReq ecs.DescribeTasksInput, env environments) (int64, error) {
+func readLog(w io.Writer, logsSv cloudwatchlogsiface.CloudWatchLogsAPI, ecsSv ecsiface.ECSAPI, logReq cloudwatchlogs.GetLogEventsInput, ecsReq ecs.DescribeTasksInput, env environments) (int, error) {
 	time.Sleep(env.StartWait)
 	for {
 		c, err := getContainerInfo(ecsSv, &ecsReq)
 		//pp.Println("containerInfo:", c)
 		if err != nil {
-			return int64(2), err
+			return 2, err
 		}
 		time.Sleep(3 * time.Second)
 		if aws.StringValue(c.LastStatus) == "PENDING" {
@@ -242,7 +239,7 @@ func readLog(w io.Writer, logsSv cloudwatchlogsiface.CloudWatchLogsAPI, ecsSv ec
 			log.Printf("getLogs err:%s", err)
 		}
 		if aws.StringValue(c.LastStatus) == "STOPPED" {
-			return aws.Int64Value(c.ExitCode), nil
+			return int(aws.Int64Value(c.ExitCode)), nil
 		}
 		logReq.NextToken = next
 	}
@@ -356,7 +353,6 @@ func runContainer(client ecsiface.ECSAPI, input *ecs.RunTaskInput) (*ecs.Task, e
 	if input.Count != nil && *input.Count > 1 {
 		return nil, errors.New("The count must be 1")
 	}
-	//pp.Println(input)
 	res, err := client.RunTask(input)
 	if err != nil {
 		return nil, err
@@ -370,7 +366,7 @@ func runContainer(client ecsiface.ECSAPI, input *ecs.RunTaskInput) (*ecs.Task, e
 		}
 		return task, nil
 	}
-	return nil, errors.New("task not found")
+	return nil, errTaskNotFound
 }
 
 var errTaskNotFound = errors.New("task not found")

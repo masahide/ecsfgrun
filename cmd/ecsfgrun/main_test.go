@@ -259,19 +259,24 @@ func TestGetLogs(t *testing.T) {
 
 type mockedECS struct {
 	ecsiface.ECSAPI
-	rtresp ecs.RunTaskOutput
-	dtresp ecs.DescribeTasksOutput
-	err    error
+	rtresp  ecs.RunTaskOutput
+	dtresp  ecs.DescribeTasksOutput
+	dtdresp ecs.DescribeTaskDefinitionOutput
+	err     error
 }
 
 func (m *mockedECS) RunTask(input *ecs.RunTaskInput) (*ecs.RunTaskOutput, error) {
 	return &m.rtresp, m.err
+}
+func (m *mockedECS) DescribeTaskDefinition(input *ecs.DescribeTaskDefinitionInput) (*ecs.DescribeTaskDefinitionOutput, error) {
+	return &m.dtdresp, m.err
 }
 
 func TestRunTask(t *testing.T) {
 	var vtests = []struct {
 		input       ecs.RunTaskInput
 		rtresp      ecs.RunTaskOutput
+		dtdresp     ecs.DescribeTaskDefinitionOutput
 		err         error
 		expected    string
 		expectedErr string
@@ -281,10 +286,30 @@ func TestRunTask(t *testing.T) {
 				Cluster: aws.String(""),
 			},
 			ecs.RunTaskOutput{
-				Tasks: nil,
 				Failures: []*ecs.Failure{
 					{Arn: aws.String("arn"), Reason: aws.String("reason")},
 					{Arn: aws.String("arn"), Reason: aws.String("reason")},
+				},
+				Tasks: []*ecs.Task{
+					{
+						TaskArn: aws.String("arn"),
+						Containers: []*ecs.Container{
+							{
+								Name:       aws.String("hoge"),
+								LastStatus: aws.String("STOPPED"),
+								ExitCode:   aws.Int64(0),
+							},
+						},
+					},
+				},
+			},
+			ecs.DescribeTaskDefinitionOutput{
+				TaskDefinition: &ecs.TaskDefinition{
+					ContainerDefinitions: []*ecs.ContainerDefinition{
+						&ecs.ContainerDefinition{
+							Name: aws.String("hoge"),
+						},
+					},
 				},
 			},
 			nil,
@@ -295,7 +320,25 @@ func TestRunTask(t *testing.T) {
 			ecs.RunTaskInput{},
 			ecs.RunTaskOutput{
 				Tasks: []*ecs.Task{
-					{TaskArn: aws.String("arn")},
+					{
+						TaskArn: aws.String("arn"),
+						Containers: []*ecs.Container{
+							{
+								Name:       aws.String("hoge"),
+								LastStatus: aws.String("STOPPED"),
+								ExitCode:   aws.Int64(0),
+							},
+						},
+					},
+				},
+			},
+			ecs.DescribeTaskDefinitionOutput{
+				TaskDefinition: &ecs.TaskDefinition{
+					ContainerDefinitions: []*ecs.ContainerDefinition{
+						&ecs.ContainerDefinition{
+							Name: aws.String("hoge"),
+						},
+					},
 				},
 			},
 			errors.New("test error"),
@@ -306,8 +349,9 @@ func TestRunTask(t *testing.T) {
 	for i, vt := range vtests {
 		//func runContainer(client ecsiface.ECSAPI, input *ecs.RunTaskInput) (string, error) {
 		m := mockedECS{
-			rtresp: vt.rtresp,
-			err:    vt.err,
+			rtresp:  vt.rtresp,
+			dtdresp: vt.dtdresp,
+			err:     vt.err,
 		}
 		res, err := runContainer(&m, &vt.input)
 		if err != nil {
@@ -483,6 +527,136 @@ func TestGetGroupID(t *testing.T) {
 		res := getGroupID(vt.input)
 		if res != vt.expected {
 			t.Errorf("getGroupID(%v) = %#v, want:%#v", vt.input, res, vt.expected)
+		}
+	}
+}
+
+func TestRun(t *testing.T) {
+	var vtests = []struct {
+		lresp    cloudwatchlogs.GetLogEventsOutput
+		lerr     error
+		rtresp   ecs.RunTaskOutput
+		dtresp   ecs.DescribeTasksOutput
+		derr     error
+		args     []string
+		err      error
+		expected int
+	}{
+		{
+			cloudwatchlogs.GetLogEventsOutput{
+				Events: []*cloudwatchlogs.OutputLogEvent{
+					{
+						Timestamp: aws.Int64(1519556892),
+						Message:   aws.String("sample message log........"),
+					},
+					{
+						Timestamp: aws.Int64(1519556893),
+						Message:   aws.String("sample message log2........"),
+					},
+				},
+				NextForwardToken: aws.String("hogehoge"),
+			},
+			nil,
+			ecs.RunTaskOutput{
+				Tasks: []*ecs.Task{
+					{
+						TaskArn: aws.String("arn"),
+						Containers: []*ecs.Container{
+							{
+								Name:       aws.String("hoge"),
+								LastStatus: aws.String("STOPPED"),
+								ExitCode:   aws.Int64(0),
+							},
+						},
+					},
+				},
+			},
+			ecs.DescribeTasksOutput{
+				Tasks: []*ecs.Task{
+					{
+						TaskArn: aws.String("arn"),
+						Containers: []*ecs.Container{
+							{
+								Name:       aws.String("hoge"),
+								LastStatus: aws.String("STOPPED"),
+								ExitCode:   aws.Int64(0),
+							},
+						},
+					},
+				},
+				Failures: []*ecs.Failure{
+					{
+						Reason: aws.String("MISSING"),
+						Arn:    aws.String("arn:aws:ecs:us-east-1:954586889057:task/305b887f-2881-6b26-a443-6441f4443b73"),
+					},
+				},
+			},
+			nil,
+			[]string{},
+			errTaskNotFound,
+			2,
+		},
+		{
+			cloudwatchlogs.GetLogEventsOutput{
+				Events: []*cloudwatchlogs.OutputLogEvent{
+					{
+						Timestamp: aws.Int64(1519556892),
+						Message:   aws.String("sample message log........"),
+					},
+					{
+						Timestamp: aws.Int64(1519556893),
+						Message:   aws.String("sample message log2........"),
+					},
+				},
+				NextForwardToken: aws.String("hogehoge"),
+			},
+			nil,
+			ecs.RunTaskOutput{
+				Tasks: []*ecs.Task{
+					{
+						TaskArn:    aws.String("arn"),
+						Containers: []*ecs.Container{&ecs.Container{Name: aws.String("hoge")}},
+					},
+				},
+			},
+			ecs.DescribeTasksOutput{
+				Tasks: []*ecs.Task{
+					{
+						TaskArn: aws.String("arn"),
+						Containers: []*ecs.Container{
+							{
+								Name:       aws.String("hoge"),
+								LastStatus: aws.String("STOPPED"),
+								ExitCode:   aws.Int64(0),
+							},
+						},
+					},
+				},
+			},
+			nil,
+			[]string{},
+			nil,
+			0,
+		},
+	}
+	env.StartWait = 0
+	for i, vt := range vtests {
+		tm := mockedECS{
+			dtresp: vt.dtresp,
+			err:    vt.derr,
+			rtresp: vt.rtresp,
+		}
+		lm := mockedCWL{
+			resp: vt.lresp,
+			err:  vt.lerr,
+		}
+
+		code, err := run(&tm, &lm, env, vt.args)
+		if err != vt.err {
+			t.Errorf("err %d:run() = err:%s, want:%s", i, err, vt.err)
+		}
+		if code != vt.expected {
+			t.Errorf("err %d:run() = %d, want:%d", i, code, vt.expected)
 		}
 	}
 }
