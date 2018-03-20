@@ -37,20 +37,22 @@ const (
 )
 
 type environments struct {
-	AWSSharedCredentialsFile string   `envconfig:"AWS_SHARED_CREDENTIALS_FILE"`
-	AWSConfigFile            string   `envconfig:"AWS_CONFIG_FILE"`
-	AWSDefaultProfile        string   `envconfig:"AWS_DEFAULT_PROFILE"`
-	AWSProfile               string   `envconfig:"AWS_PROFILE"`
-	AWSDefaultRegion         string   `envconfig:"AWS_DEFAULT_REGION"`
-	OverrideEnvPrefix        string   `envconfig:"OVERRIDE_ENV_PREFIX" default:"ECSFGRUN_"`
-	Home                     string   `envconfig:"HOME"`
-	PrintTime                bool     `envconfig:"PRINT_TIME" default:"false"`
-	AssignPublicIP           bool     `envconfig:"PUBLICIP" default:"true"`
-	Cluster                  string   `envconfig:"CLUSTER" desc:"If you do not specify a cluster, the default cluster is assumed"`
-	LaunchType               string   `envconfig:"LAUNCHTYPE" default:"FARGATE"`
-	SecurityGroups           []string `envconfig:"SECGROUPS" desc:"Security groups of awsvpc network mode"`
-	Subnets                  []string `envconfig:"SUBNETS" desc:"Subnets of awsvpc network mode"`
-	TaskDefinition           string   `envconfig:"TASKDEF" required:"false" desc:"The family and revision (family:revision ) or full ARN of the task definition to run."`
+	AWSSharedCredentialsFile string        `envconfig:"AWS_SHARED_CREDENTIALS_FILE"`
+	AWSConfigFile            string        `envconfig:"AWS_CONFIG_FILE"`
+	AWSDefaultProfile        string        `envconfig:"AWS_DEFAULT_PROFILE"`
+	AWSProfile               string        `envconfig:"AWS_PROFILE"`
+	AWSDefaultRegion         string        `envconfig:"AWS_DEFAULT_REGION"`
+	OverrideEnvPrefix        string        `envconfig:"OVERRIDE_ENV_PREFIX" default:"ECSFGRUN_"`
+	Home                     string        `envconfig:"HOME"`
+	StartWait                time.Duration `envconfig:"START_WAIT" default:"40s"`
+	ShowPending              bool          `envconfig:"SHOW_PENDING" default:"false"`
+	PrintTime                bool          `envconfig:"PRINT_TIME" default:"false"`
+	AssignPublicIP           bool          `envconfig:"PUBLICIP" default:"true"`
+	Cluster                  string        `envconfig:"CLUSTER" desc:"If you do not specify a cluster, the default cluster is assumed"`
+	LaunchType               string        `envconfig:"LAUNCHTYPE" default:"FARGATE"`
+	SecurityGroups           []string      `envconfig:"SECGROUPS" desc:"Security groups of awsvpc network mode"`
+	Subnets                  []string      `envconfig:"SUBNETS" desc:"Subnets of awsvpc network mode"`
+	TaskDefinition           string        `envconfig:"TASKDEF" required:"false" desc:"The family and revision (family:revision ) or full ARN of the task definition to run."`
 }
 
 // Time envconfig type of time
@@ -217,7 +219,7 @@ func makeEnvs(prefix string) []*ecs.KeyValuePair {
 }
 
 func readLog(w io.Writer, logsSv cloudwatchlogsiface.CloudWatchLogsAPI, ecsSv ecsiface.ECSAPI, logReq cloudwatchlogs.GetLogEventsInput, ecsReq ecs.DescribeTasksInput, env environments) (int64, error) {
-	time.Sleep(20 * time.Second)
+	time.Sleep(env.StartWait)
 	for {
 		c, err := getContainerInfo(ecsSv, &ecsReq)
 		//pp.Println("containerInfo:", c)
@@ -226,7 +228,9 @@ func readLog(w io.Writer, logsSv cloudwatchlogsiface.CloudWatchLogsAPI, ecsSv ec
 		}
 		time.Sleep(3 * time.Second)
 		if aws.StringValue(c.LastStatus) == "PENDING" {
-			log.Printf("Task Status: %s", *c.LastStatus)
+			if env.ShowPending {
+				log.Printf("Task Status: %s", *c.LastStatus)
+			}
 			continue
 		}
 		next, err := getLogs(logsSv, w, logReq, env)
