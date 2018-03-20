@@ -42,6 +42,7 @@ type environments struct {
 	AWSDefaultProfile        string   `envconfig:"AWS_DEFAULT_PROFILE"`
 	AWSProfile               string   `envconfig:"AWS_PROFILE"`
 	AWSDefaultRegion         string   `envconfig:"AWS_DEFAULT_REGION"`
+	OverrideEnvPrefix        string   `envconfig:"OVERRIDE_ENV_PREFIX" default:"ECSFGRUN_"`
 	Home                     string   `envconfig:"HOME"`
 	PrintTime                bool     `envconfig:"PRINT_TIME" default:"false"`
 	AssignPublicIP           bool     `envconfig:"PUBLICIP" default:"true"`
@@ -185,14 +186,34 @@ func createRunParam(client ecsiface.ECSAPI, env environments, cmdline []string) 
 		input.Overrides = &ecs.TaskOverride{
 			ContainerOverrides: []*ecs.ContainerOverride{
 				{
-					Command: createCmd(cmdline),
-					//Environment: makeEnvs(env.IgnoreEnvPrefix),
-					Name: containerName,
+					Command:     createCmd(cmdline),
+					Environment: makeEnvs(env.OverrideEnvPrefix),
+					Name:        containerName,
 				},
 			},
 		}
 	}
 	return &input, nil
+}
+
+func makeEnvs(prefix string) []*ecs.KeyValuePair {
+	envs := os.Environ()
+	res := make([]*ecs.KeyValuePair, 0, len(envs))
+	for _, env := range envs {
+		if !strings.HasPrefix(env, prefix) {
+			continue
+		}
+		v := strings.SplitN(env, "=", 2)
+		if len(v) != 2 {
+			continue
+		}
+		v[0] = strings.TrimPrefix(v[0], prefix)
+		res = append(res, &ecs.KeyValuePair{Name: aws.String(v[0]), Value: aws.String(v[1])})
+	}
+	if len(res) > 0 {
+		return res
+	}
+	return nil
 }
 
 func readLog(w io.Writer, logsSv cloudwatchlogsiface.CloudWatchLogsAPI, ecsSv ecsiface.ECSAPI, logReq cloudwatchlogs.GetLogEventsInput, ecsReq ecs.DescribeTasksInput, env environments) (int64, error) {

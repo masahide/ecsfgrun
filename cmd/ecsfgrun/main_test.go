@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -438,26 +439,35 @@ func TestGetTaskID(t *testing.T) {
 	}
 }
 
-/*
 func TestMakeEnvs(t *testing.T) {
 	os.Setenv("hogefuga_hoge", "hogehoge")
+	os.Setenv("hogefuga_fuga", "fugafuga")
 	os.Setenv("testENV", "hogehoge")
 	kvs := makeEnvs("hogefuga_")
 	for _, kv := range kvs {
-		if *kv.Name == "hogefuga_hoge" {
-			t.Error("ignorePrefix err")
+		if *kv.Name == "hoge" && *kv.Value != "hogehoge" {
+			t.Errorf("ignorePrefix err: %# v", kv)
+		}
+		if *kv.Name == "fuga" && *kv.Value != "fugafuga" {
+			t.Errorf("ignorePrefix err: %# v", kv)
 		}
 	}
 	for _, kv := range kvs {
 		if *kv.Name == "testENV" {
-			if *kv.Value == "hogehoge" {
-				return
-			}
+			t.Error("error")
 		}
 	}
-	t.Error("env not found")
+	for _, kv := range kvs {
+		if *kv.Name == "hoge" {
+			return
+		}
+	}
+	t.Error("Not found key.")
+
+	if makeEnvs("fugafugafuadfa") != nil {
+		t.Error("not empty")
+	}
 }
-*/
 
 func TestGetGroupID(t *testing.T) {
 	var vtests = []struct {
