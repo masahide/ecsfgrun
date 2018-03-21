@@ -537,6 +537,7 @@ func TestRun(t *testing.T) {
 		lerr     error
 		rtresp   ecs.RunTaskOutput
 		dtresp   ecs.DescribeTasksOutput
+		dtdresp  ecs.DescribeTaskDefinitionOutput
 		derr     error
 		args     []string
 		err      error
@@ -591,6 +592,15 @@ func TestRun(t *testing.T) {
 					},
 				},
 			},
+			ecs.DescribeTaskDefinitionOutput{
+				TaskDefinition: &ecs.TaskDefinition{
+					ContainerDefinitions: []*ecs.ContainerDefinition{
+						&ecs.ContainerDefinition{
+							Name: aws.String("hoge"),
+						},
+					},
+				},
+			},
 			nil,
 			[]string{},
 			errTaskNotFound,
@@ -633,8 +643,68 @@ func TestRun(t *testing.T) {
 					},
 				},
 			},
+			ecs.DescribeTaskDefinitionOutput{
+				TaskDefinition: &ecs.TaskDefinition{
+					ContainerDefinitions: []*ecs.ContainerDefinition{
+						&ecs.ContainerDefinition{
+							Name: aws.String("hoge"),
+						},
+					},
+				},
+			},
 			nil,
 			[]string{},
+			nil,
+			0,
+		},
+		{
+			cloudwatchlogs.GetLogEventsOutput{
+				Events: []*cloudwatchlogs.OutputLogEvent{
+					{
+						Timestamp: aws.Int64(1519556892),
+						Message:   aws.String("sample message log........"),
+					},
+					{
+						Timestamp: aws.Int64(1519556893),
+						Message:   aws.String("sample message log2........"),
+					},
+				},
+				NextForwardToken: aws.String("hogehoge"),
+			},
+			nil,
+			ecs.RunTaskOutput{
+				Tasks: []*ecs.Task{
+					{
+						TaskArn:    aws.String("arn"),
+						Containers: []*ecs.Container{&ecs.Container{Name: aws.String("hoge")}},
+					},
+				},
+			},
+			ecs.DescribeTasksOutput{
+				Tasks: []*ecs.Task{
+					{
+						TaskArn: aws.String("arn"),
+						Containers: []*ecs.Container{
+							{
+								Name:       aws.String("hoge"),
+								LastStatus: aws.String("STOPPED"),
+								ExitCode:   aws.Int64(0),
+							},
+						},
+					},
+				},
+			},
+			ecs.DescribeTaskDefinitionOutput{
+				TaskDefinition: &ecs.TaskDefinition{
+					ContainerDefinitions: []*ecs.ContainerDefinition{
+						&ecs.ContainerDefinition{
+							Name: aws.String("hoge"),
+						},
+					},
+				},
+			},
+			nil,
+			[]string{"hoge", "fuga"},
 			nil,
 			0,
 		},
@@ -642,9 +712,10 @@ func TestRun(t *testing.T) {
 	env.StartWait = 0
 	for i, vt := range vtests {
 		tm := mockedECS{
-			dtresp: vt.dtresp,
-			err:    vt.derr,
-			rtresp: vt.rtresp,
+			dtresp:  vt.dtresp,
+			err:     vt.derr,
+			rtresp:  vt.rtresp,
+			dtdresp: vt.dtdresp,
 		}
 		lm := mockedCWL{
 			resp: vt.lresp,
@@ -657,6 +728,47 @@ func TestRun(t *testing.T) {
 		}
 		if code != vt.expected {
 			t.Errorf("err %d:run() = %d, want:%d", i, code, vt.expected)
+		}
+	}
+}
+func TestCreateCmd(t *testing.T) {
+	var vtests = []struct {
+		line     []string
+		expected []string
+	}{
+		{[]string{"hoge", "fuga"}, []string{"hoge", "fuga"}},
+	}
+	for i, vt := range vtests {
+		res := createCmd(vt.line)
+		for j := range res {
+			if *res[j] != vt.expected[j] {
+				t.Errorf("err %d:getStsSession() = %#v, want:%#v", i, res, vt.expected)
+			}
+		}
+	}
+
+}
+func TestGetStsSession(t *testing.T) {
+	var vtests = []struct {
+		conf     profileConfig
+		expected *string
+	}{
+		{profileConfig{}, nil},
+	}
+	os.Unsetenv("AWS_DEFAULT_PROFILE")
+	os.Unsetenv("AWS_PROFILE")
+	os.Unsetenv("AWS_REGION")
+	os.Unsetenv("AWS_DEFAULT_REGION")
+	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+	os.Unsetenv("AWS_CONFIG_FILE")
+	os.Unsetenv("AWS_ACCESS_KEY_ID")
+	os.Unsetenv("AWS_SECRET_ACCESS_KEY")
+	os.Unsetenv("AWS_SESSION_TOKEN")
+	env.Home = "/dev/null"
+	for i, vt := range vtests {
+		res := getStsSession(vt.conf)
+		if res.Config.Endpoint != vt.expected {
+			t.Errorf("err %d:getStsSession() = %#v, want:%#v", i, res.Config.Endpoint, vt.expected)
 		}
 	}
 }
