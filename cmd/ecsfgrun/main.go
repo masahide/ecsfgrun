@@ -55,19 +55,6 @@ type environments struct {
 	TaskDefinition           string        `envconfig:"TASKDEF" required:"false" desc:"The family and revision (family:revision ) or full ARN of the task definition to run."`
 }
 
-// Time envconfig type of time
-type Time time.Time
-
-// Decode envconfig time decoder
-func (t *Time) Decode(value string) error {
-	tm, err := time.Parse(time.RFC3339, value)
-	if err != nil {
-		return err
-	}
-	*t = Time(tm)
-	return err
-}
-
 type profileConfig struct {
 	RoleARN    string
 	SrcProfile string
